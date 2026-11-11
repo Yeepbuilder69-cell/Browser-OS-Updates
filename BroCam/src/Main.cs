@@ -58,8 +58,8 @@ namespace VCamNetSample
             catch (Exception ex)
             {
                 StopCamera();
-                MessageBox.Show(this, "Bro Cam could not start the virtual camera.\r\n\r\n" + ex.Message,
-                    "Bro Cam", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                System.Windows.Forms.MessageBox.Show(this, "Bro Cam could not start the virtual camera.\r\n\r\n" + ex.Message,
+                    "Bro Cam", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
             }
         }
 
