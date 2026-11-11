@@ -17,11 +17,6 @@ jobs:
       - name: Check out Bro Cam project
         uses: actions/checkout@v4
 
-      - name: Set up .NET 10
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
       - name: Check out Media Foundation virtual-camera source
         uses: actions/checkout@v4
         with:
@@ -29,22 +24,32 @@ jobs:
           ref: main
           path: third_party/VCamNetSample
 
-      - name: Build native virtual-camera media source
-        shell: pwsh
-        run: |
-          dotnet publish third_party/VCamNetSample/VCamNetSampleSourceAOT/VCamNetSampleSourceAOT.csproj -c Release -r win-x64 -p:Platform=x64 -p:PublishAot=true -o "${{ github.workspace }}\\build\\source"
+      - name: Install .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
 
-      - name: Build Bro Cam virtual-camera controller
+      - name: Apply Bro Cam controller UI
+        shell: pwsh
+        run: Copy-Item "BroCam/src/Main.cs" "third_party/VCamNetSample/VCamNetSample/Main.cs" -Force
+
+      - name: Build registered Media Foundation source
         shell: pwsh
         run: |
-          dotnet publish third_party/VCamNetSample/VCamNetSampleAOT/VCamNetSampleAOT.csproj -c Release -r win-x64 -p:Platform=x64 -p:PublishAot=true -o "${{ github.workspace }}\\build\\app"
-          Copy-Item "build\\source\\VCamNetSampleSourceAOT.dll" "build\\app\\VCamNetSampleSourceAOT.dll" -Force
-          if (Test-Path "build\\app\\VCamNetSampleAOT.exe") {
-            Rename-Item "build\\app\\VCamNetSampleAOT.exe" "BroCam.exe"
-          } else {
-            throw "The virtual-camera controller executable was not produced."
-          }
-          Copy-Item "third_party\\VCamNetSample\\LICENSE" "build\\app\\THIRD-PARTY-LICENSE.txt"
+          dotnet build third_party/VCamNetSample/VCamNetSampleSource/VCamNetSampleSource.csproj -c Release -p:Platform=x64
+          $source = "third_party/VCamNetSample/VCamNetSampleSource/bin/x64/Release/net10.0-windows10.0.22621.0"
+          if (!(Test-Path "$source/VCamNetSampleSource.comhost.dll")) { throw "COM host DLL missing" }
+          New-Item -ItemType Directory -Force build/source | Out-Null
+          Copy-Item "$source/*" build/source -Recurse -Force
+
+      - name: Build Bro Cam controller
+        shell: pwsh
+        run: |
+          dotnet publish third_party/VCamNetSample/VCamNetSample/VCamNetSample.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64 -o build/app
+          Copy-Item build/source/* build/app -Recurse -Force
+          if (!(Test-Path "build/app/VCamNetSample.exe")) { throw "Bro Cam application was not built" }
+          Rename-Item build/app/VCamNetSample.exe BroCam.exe
+          Copy-Item third_party/VCamNetSample/LICENSE build/app/THIRD-PARTY-LICENSE.txt
 
       - name: Install Inno Setup
         shell: pwsh
@@ -53,8 +58,8 @@ jobs:
       - name: Build Bro Cam Setup.exe
         shell: pwsh
         run: |
-          & "C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe" "BroCam\\installer\\BroCam.iss"
-          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed." }
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "BroCam/installer/BroCam.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
