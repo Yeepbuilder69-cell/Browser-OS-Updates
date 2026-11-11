@@ -147,15 +147,9 @@ namespace VCamNetSampleSource
         public HRESULT Set3DManager(object manager)
         {
             var allocator = _allocator;
-            if (allocator == null)
-            {
-                EventProvider.LogInfo($"E_POINTER");
-                return HRESULTS.E_POINTER;
-            }
-
+            if (allocator == null) return HRESULTS.E_POINTER;
             allocator.Object.SetDirectXManager(manager).ThrowOnError();
-            var hr = _generator.SetD3DManager(manager, NUM_IMAGE_COLS, NUM_IMAGE_ROWS);
-            return hr;
+            return HRESULTS.S_OK;
         }
 
         //public CustomQueryInterfaceResult GetInterface(ref Guid iid, out nint ppv)
