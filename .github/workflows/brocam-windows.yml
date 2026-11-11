@@ -31,7 +31,8 @@ jobs:
 
       - name: Apply Bro Cam controller UI
         shell: pwsh
-        run: Copy-Item "BroCam/src/Main.cs" "third_party/VCamNetSample/VCamNetSample/Main.cs" -Force
+        run: |
+          Copy-Item "BroCam/src/Main.cs" "third_party/VCamNetSample/VCamNetSample/Main.cs" -Force
           Copy-Item "BroCam/src/FrameGenerator.cs" "third_party/VCamNetSample/VCamNetSampleSource/FrameGenerator.cs" -Force
           Copy-Item "BroCam/src/MediaStream.cs" "third_party/VCamNetSample/VCamNetSampleSource/MediaStream.cs" -Force
 
