@@ -7,6 +7,8 @@ using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Linq;
 using System.Windows.Forms;
+using DirectN;
+using VCamNetSampleSource;
 
 namespace VCamNetSample
 {
@@ -22,6 +24,8 @@ namespace VCamNetSample
         private MemoryMappedViewAccessor? _view;
         private System.Windows.Forms.Timer? _timer;
         private bool _running;
+        private IComObject<IMFVirtualCamera>? _camera;
+        private bool _mfStarted;
         private Layer? _drag;
         private Point _dragOffset;
 
@@ -66,6 +70,32 @@ namespace VCamNetSample
             RefreshLayers();
         }
 
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            MFFunctions.MFStartup();
+            _mfStarted = true;
+            var hr = Functions.MFCreateVirtualCamera(
+                __MIDL___MIDL_itf_mfvirtualcamera_0000_0000_0001.MFVirtualCameraType_SoftwareCameraSource,
+                __MIDL___MIDL_itf_mfvirtualcamera_0000_0000_0002.MFVirtualCameraLifetime_Session,
+                __MIDL___MIDL_itf_mfvirtualcamera_0000_0000_0003.MFVirtualCameraAccess_CurrentUser,
+                "Bro Cam Virtual Camera", "{" + Shared.CLSID_VCamNet + "}", null, 0, out var camera);
+            if (hr.IsSuccess)
+            {
+                _camera = new ComObject<IMFVirtualCamera>(camera);
+                hr = _camera.Object.Start(null);
+            }
+            if (hr.IsError)
+            {
+                MessageBox.Show(this, $"Could not start Bro Cam Virtual Camera: {hr} ({hr.Value})", "Bro Cam", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                _status.Text = "Virtual camera registration failed";
+            }
+            else
+            {
+                _status.Text = "Bro Cam Virtual Camera is registered and ready";
+            }
+        }
+
         private static void Style(Button b) { b.FlatStyle = FlatStyle.Flat; b.FlatAppearance.BorderSize = 0; b.BackColor = Color.FromArgb(112,63,180); b.ForeColor = Color.White; b.Font = new Font("Segoe UI", 9, FontStyle.Bold); }
         private Button MakeButton(string text, int x, int y) { var b = new Button { Text = text, Location = new Point(x,y), Size = new Size(220,38) }; Style(b); return b; }
         private void AddImage() { using var d = new OpenFileDialog { Filter = "Images|*.png;*.jpg;*.jpeg;*.bmp;*.gif" }; if (d.ShowDialog(this) != DialogResult.OK) return; using var im = Image.FromFile(d.FileName); _layers.Add(new Layer { Name = Path.GetFileName(d.FileName), Kind = "Image", Path = d.FileName, Size = new SizeF(Math.Min(600,im.Width), Math.Min(450,im.Height)) }); RefreshLayers(); }
@@ -86,6 +116,6 @@ namespace VCamNetSample
         private void StartCamera() { try { _map=MemoryMappedFile.CreateOrOpen("BroCamFrame",W*H*4); _view=_map.CreateViewAccessor(); _timer=new System.Windows.Forms.Timer { Interval=33 }; _timer.Tick += (_,__) => PublishFrame(); _timer.Start(); _running=true; _toggle.Text="Stop Virtual Camera"; _status.Text="Publishing scene • start camera in your video app"; _status.ForeColor=Color.LightGreen; } catch(Exception ex) { StopCamera(); MessageBox.Show(this,ex.Message,"Bro Cam"); } }
         private void PublishFrame() { if(_view==null)return; using var bmp=RenderScene(); var data=bmp.LockBits(new Rectangle(0,0,W,H),ImageLockMode.ReadOnly,PixelFormat.Format32bppArgb); try { var bytes=new byte[W*H*4]; System.Runtime.InteropServices.Marshal.Copy(data.Scan0,bytes,0,bytes.Length); _view.WriteArray(0,bytes,0,bytes.Length); } finally { bmp.UnlockBits(data); } }
         private void StopCamera() { _timer?.Stop(); _timer?.Dispose(); _timer=null; _view?.Dispose(); _view=null; _map?.Dispose(); _map=null; _running=false; _toggle.Text="Start Virtual Camera"; _status.Text="Virtual camera stopped"; _status.ForeColor=Color.Gainsboro; }
-        protected override void OnFormClosing(FormClosingEventArgs e) { StopCamera(); base.OnFormClosing(e); }
+        protected override void OnFormClosing(FormClosingEventArgs e) { StopCamera(); try { _camera?.Object.Remove(); } catch { } _camera?.Dispose(); if (_mfStarted) MFFunctions.MFShutdown(); base.OnFormClosing(e); }
     }
 }
