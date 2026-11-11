@@ -11,8 +11,6 @@ namespace VCamNetSampleSource
     {
         private const int NUM_IMAGE_COLS = 1280;
         private const int NUM_IMAGE_ROWS = 960;
-
-    {
         public const float DIVISOR = 20;
 
         private bool _disposedValue;
